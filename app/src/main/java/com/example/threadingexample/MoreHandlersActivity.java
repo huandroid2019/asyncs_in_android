@@ -21,6 +21,9 @@ import java.util.Calendar;
 
 import static java.lang.Thread.sleep;
 
+/**
+ * еще немного прохендлеры. метод post
+ */
 public class MoreHandlersActivity extends AppCompatActivity {
     TextView tv_1, tv_2, tv_3, tv_result;
     Handler handler;
@@ -35,16 +38,23 @@ public class MoreHandlersActivity extends AppCompatActivity {
         tv_result = findViewById(R.id.tv_result);
         imageView = findViewById(R.id.imageView);
 
+        //это просто интерфейс на задачу
+        //здесь задача установить текущее время в tv_3 и заставить tv_3
+        //запустить эту же задачу через 1 секунду
         Runnable task = new Runnable() {
             @Override
             public void run() {
                 tv_3.setText(Calendar.getInstance().getTime().toString());
+                //post() выполняется в UI-потоке, никаких других потоков здесь нет!
                 tv_3.postDelayed(this,1000);
             }
         };
+        //и сразу первый вызов
         tv_3.post(task);
 
-
+        //правильный хендлер создан в MainActivity, но этот для примера - пойдет
+        //лучше его делать статик и со слабой ссылкой
+        //этот хендлер отправляет сообщения в handleMessaage, где они их ловит и снова же отправляет в handleMessage
         handler = new Handler(){
             @Override
             public void handleMessage(@NonNull Message msg) {
@@ -53,12 +63,16 @@ public class MoreHandlersActivity extends AppCompatActivity {
                 handler.sendEmptyMessageDelayed(0,1000);
             }
         };
+        //начинаем круговорот
         handler.sendEmptyMessage(0);
 
+        //выше были два примера таймеров без потоков, но здесь просто пример как из
+        //одного потока запускать задачи в другом
         new Thread(new Runnable() {
             @Override
             public void run() {
                 while (true){
+                    //tv_2 "постит" задачу в свой поток (UI)
                     tv_2.post(new Runnable() {
                         @Override
                         public void run() {
@@ -75,40 +89,23 @@ public class MoreHandlersActivity extends AppCompatActivity {
         }).start();
 
 
-
-        foo();//1
-        tv_3.post(new Runnable() {//2
-            @Override
-            public void run() {
-                foo();
-            }
-        });
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-               runOnUiThread(new Runnable() {
-                   @Override
-                   public void run() {
-                       foo();
-                   }
-               });
-            }
-        }).start();
-
     }
 
     public void onClick(View v){
+        //задержка появления/исчезновения картинки с помощью хендлера
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 imageView.setVisibility(imageView.getVisibility()==View.GONE?View.VISIBLE:View.GONE);
             }
         },3000);
-
+        //загрузка данных из сети только не в UI-потоке
         new Thread(new Runnable() {
             @Override
             public void run() {
                 final String res = getFromUrl();
+                //не в UI потоке нельзя напрямую установит ьтекст в tb_result
+                //но отправить задание на установку можно
                 tv_result.post(new Runnable() {
                     @Override
                     public void run() {
@@ -119,10 +116,11 @@ public class MoreHandlersActivity extends AppCompatActivity {
         }).start();
 
     }
-    void foo(){
-        tv_3.setText("dfdsfsd");
-    }
 
+    /**
+     * получаем строку с сайта по url.
+     * @return
+     */
     String getFromUrl(){
         try {
             URL url = new URL("https://api.bittrex.com/api/v1.1/public/getmarketsummaries");

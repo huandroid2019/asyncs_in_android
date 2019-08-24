@@ -19,6 +19,9 @@ import com.example.threadingexample.retrofit_example.RetrofitActivity;
 
 import java.lang.ref.WeakReference;
 
+/**
+ * здесь приведен простой пример работы с Handler
+ */
 public class MainActivity extends AppCompatActivity {
 
     TextView tv_progress, tv_result;
@@ -26,12 +29,21 @@ public class MainActivity extends AppCompatActivity {
     final double MAX = 1e5;
     Thread thread;
 
-
+    /**
+     * класс хендлера должен быть статическим и, если он раблотает с активностью -
+     * лучше держать ссылку в weakReference
+     */
     static class MyProgressHandler extends Handler{
         private final WeakReference<MainActivity> activityWeakReference;
         MyProgressHandler(MainActivity activity) {
             this.activityWeakReference = new WeakReference<MainActivity>(activity);
         }
+
+        /**
+         * данный метод сработает при посылке хендлеро сообщений методом sendNessage()
+         * метод отработает в потоке UI так как этот хендлер создан в UI-потоке
+         * @param msg
+         */
         @Override
         public void handleMessage(@NonNull Message msg) {
             super.handleMessage(msg);
@@ -39,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
             if(activity == null) {
                 return;
             }
+            //обновляем прогресс и текст
             activity.progressBar.setProgress(msg.what);
             activity.tv_progress.setText(""+msg.what);
             if(msg.arg1!=0){
@@ -48,6 +61,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
     MyProgressHandler myProgressHandler;
+
+    //плохой пример создания хендлера как иннер-класса
     /*Handler handler = new Handler(){
        @Override
        public void handleMessage(@NonNull Message msg) {
@@ -72,6 +87,9 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * просто функция, иммитирующая долгую работу
+     */
     void doWork() {//foreign thread
         double s= 0;
         double percents = 0;
@@ -80,16 +98,22 @@ public class MainActivity extends AppCompatActivity {
             percents = (i+1)/MAX*100;
 
             ///handler.sendEmptyMessage((int) percents);
+            //послыаем прогресс в handleMessage
             myProgressHandler.sendEmptyMessage((int) percents);
+            //прервем цикл, если поток хотят остановить
             if(Thread.interrupted()) {
                 break;
             }
         }
-
+        //результаты тоже нужны! посылаем их в UI-поток
         myProgressHandler.sendMessage(myProgressHandler.obtainMessage(100, 1,0,s));
         //handler.sendMessage(handler.obtainMessage((int) percents,1,0,s));
     }
 
+    /**
+     * при нажатии на кнопку создаем новый поток и заускаем
+     * @param view
+     */
     public void onClick(View view) {
        thread = new Thread(new Runnable() {
             @Override
@@ -101,11 +125,17 @@ public class MainActivity extends AppCompatActivity {
         thread.start();
        //doWork();
     }
+
+    /**
+     * вдруг нам надо выйти? можем остановить поток
+     * @param view
+     */
     public void onCancelClick(View view) {
         if(thread!=null&& thread.isAlive()){
             thread.interrupt();
         }
     }
+
 
     @Override
     protected void onDestroy() {
